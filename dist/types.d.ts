@@ -1,8 +1,13 @@
-export declare type TableProps = {
-    name: string;
-    fields: Array<FieldProps<any>>;
+export declare type Schema = {
+    tables: Array<Table>;
+    databaseString: string;
+    schemaFilePath?: string;
 };
-export declare type FieldProps<T> = {
+export declare type Table = {
+    name: string;
+    fields: Array<Field<any>>;
+};
+export declare type Field<T> = {
     name: string;
     type: string;
     default?: T;

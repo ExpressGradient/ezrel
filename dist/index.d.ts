@@ -1,3 +1,2 @@
-import { FieldProps, TableProps } from "./types";
-export declare const table: (props: TableProps) => void;
-export declare const field: <T>(props: FieldProps<T>) => void;
+import { Schema } from "./types";
+export declare const createSchema: (props: Schema) => void;

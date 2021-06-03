@@ -1,9 +1,15 @@
-export type TableProps = {
-    name: string;
-    fields: Array<FieldProps<any>>
-}
+export type Schema = {
+    tables: Array<Table>;
+    databaseString: string;
+    schemaFilePath?: string;
+};
 
-export type FieldProps<T> = {
+export type Table = {
+    name: string;
+    fields: Array<Field<any>>;
+};
+
+export type Field<T> = {
     name: string;
     type: string;
     default?: T;
@@ -13,7 +19,7 @@ export type FieldProps<T> = {
     references?: {
         table: string;
         field: string;
-    }
+    };
     unique?: boolean;
     notNull?: boolean;
-}
+};
