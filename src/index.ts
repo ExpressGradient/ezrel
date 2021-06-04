@@ -1,7 +1,8 @@
 import { Field, Index, Schema, Table } from "./types";
-import { appendFileSync, writeFileSync } from "fs";
+import { appendFileSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { cwd } from "process";
+import { Pool } from "pg";
 
 export const createSchema = (props: Schema): void => {
     console.time("Creating Schema");
@@ -14,11 +15,31 @@ export const createSchema = (props: Schema): void => {
     );
 
     props.tables.forEach((table) => {
-        createTable(table, schemaPath);
         console.timeLog(
             "Creating Schema",
-            `Status: Created Table ${table.name}`
+            `Status: Writing Table ${table.name}`
         );
+        createTable(table, schemaPath);
+    });
+
+    const pool = new Pool({ connectionString: props.databaseString });
+    console.timeLog("Creating Schema", "Creating Postgres Pool");
+
+    const schema: string = readFileSync(schemaPath, {
+        encoding: "utf-8",
+    }).toString();
+    console.timeLog(
+        "Creating Schema",
+        "Creating Tables and Indexes in Postgres"
+    );
+
+    pool.query(schema, (err, res) => {
+        if (err) {
+            console.log(err);
+        } else {
+            console.log(res);
+        }
+        pool.end();
     });
 
     console.timeEnd("Creating Schema");
@@ -29,9 +50,9 @@ const createTable = (props: Table, schemaPath: string): void => {
     let tableString: string = `CREATE TABLE ${props.name} (\n`;
 
     props.fields.forEach(
-        (field) =>
+        (field, idx) =>
             (tableString = tableString
-                .concat(createField(field))
+                .concat(createField(field, idx === props.fields.length - 1))
                 .trim()
                 .concat("\n"))
     );
@@ -43,11 +64,11 @@ const createTable = (props: Table, schemaPath: string): void => {
     if (checkExistsTruth("indexes", props)) {
         let indexStrings: string = "";
         props.indexes.forEach((index) => {
-            indexStrings = indexStrings.concat(createIndex(index, props.name));
             console.timeLog(
                 "Creating Schema",
-                `Status: Created Index ${index.name}`
+                `Status: Writing Index ${index.name}`
             );
+            indexStrings = indexStrings.concat(createIndex(index, props.name));
         });
         appendFileSync(join(cwd(), schemaPath), indexStrings);
     }
@@ -73,7 +94,7 @@ const checkExistsTruth = (prop: string, obj: object): boolean => {
     return prop in obj && obj[prop];
 };
 
-const createField = (props: Field): string => {
+const createField = (props: Field, isLastField: boolean = false): string => {
     let fieldString: string = `${props.name} ${props.type}`;
 
     if (checkExistsTruth("default", props)) {
@@ -81,14 +102,28 @@ const createField = (props: Field): string => {
     }
 
     if (checkExistsTruth("primaryKey", props)) {
-        fieldString = fieldString.concat(" PRIMARY KEY;");
+        fieldString = fieldString.concat(" PRIMARY KEY");
+        if (!isLastField) {
+            fieldString = fieldString.concat(`,`);
+        }
         return fieldString;
     }
 
     if (checkExistsTruth("references", props)) {
         fieldString = fieldString.concat(
-            ` REFERENCES ${props.references.table} ${props.references.field};`
+            ` REFERENCES ${props.references.table} (`
         );
+        props.references.fields.forEach((field: string, idx) => {
+            fieldString = fieldString.concat(field);
+            if (idx < props.references.fields.length - 1) {
+                fieldString = fieldString.concat(", ");
+            } else {
+                fieldString = fieldString.concat(")");
+            }
+        });
+        if (!isLastField) {
+            fieldString = fieldString.concat(`,`);
+        }
         return fieldString;
     }
 
@@ -100,7 +135,9 @@ const createField = (props: Field): string => {
         fieldString = fieldString.concat(` NOT NULL`);
     }
 
-    fieldString = fieldString.concat(`;`);
+    if (!isLastField) {
+        fieldString = fieldString.concat(`,`);
+    }
 
     return fieldString;
 };

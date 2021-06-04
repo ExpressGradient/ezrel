@@ -26,6 +26,10 @@
   "homepage": "https://github.com/ExpressGradient/ezrel#readme",
   "devDependencies": {
     "@types/node": "^15.12.0",
+    "@types/pg": "^8.6.0",
     "typescript": "^4.3.2"
+  },
+  "dependencies": {
+    "pg": "^8.6.0"
   }
 }

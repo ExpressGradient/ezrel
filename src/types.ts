@@ -25,7 +25,7 @@ export type Field = {
     primaryKey?: boolean;
     references?: {
         table: string;
-        field: string;
+        fields: Array<String>;
     };
     unique?: boolean;
     notNull?: boolean;
