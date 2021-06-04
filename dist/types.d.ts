@@ -12,6 +12,7 @@ export declare type Table = {
     name: string;
     fields: Array<Field>;
     indexes?: Array<Index>;
+    inherits?: string;
 };
 export declare type Field = {
     name: string;

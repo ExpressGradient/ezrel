@@ -57,7 +57,13 @@ const createTable = (props: Table, schemaPath: string): void => {
                 .concat("\n"))
     );
 
-    tableString = tableString.concat(");\n\n");
+    tableString = tableString.concat(")");
+
+    if (checkExistsTruth("inherits", props)) {
+        tableString = tableString.concat(` INHERITS (${props.inherits})`);
+    }
+
+    tableString = tableString.concat(";\n\n");
 
     appendFileSync(join(cwd(), schemaPath), tableString);
 

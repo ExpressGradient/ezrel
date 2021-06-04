@@ -41,7 +41,11 @@ var createTable = function (props, schemaPath) {
             .trim()
             .concat("\n"));
     });
-    tableString = tableString.concat(");\n\n");
+    tableString = tableString.concat(")");
+    if (checkExistsTruth("inherits", props)) {
+        tableString = tableString.concat(" INHERITS (" + props.inherits + ")");
+    }
+    tableString = tableString.concat(";\n\n");
     fs_1.appendFileSync(path_1.join(process_1.cwd(), schemaPath), tableString);
     if (checkExistsTruth("indexes", props)) {
         var indexStrings_1 = "";
