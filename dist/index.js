@@ -5,14 +5,16 @@ var fs_1 = require("fs");
 var path_1 = require("path");
 var process_1 = require("process");
 var createSchema = function (props) {
+    console.time("Creating Schema");
     var schemaPath = props.schemaFilePath || "schema.sql";
-    console.log("Writing Schema to " + schemaPath);
     fs_1.writeFileSync(path_1.join(process_1.cwd(), schemaPath), "");
+    console.timeLog("Creating Schema", "Status: Writing Schema to " + schemaPath);
     props.tables.forEach(function (table) {
-        console.log("Creating " + table.name + " table");
         createTable(table, schemaPath);
+        console.timeLog("Creating Schema", "Status: Created Table " + table.name);
     });
-    console.log("Created Schema");
+    console.timeEnd("Creating Schema");
+    console.log("Done");
 };
 exports.createSchema = createSchema;
 var createTable = function (props, schemaPath) {
@@ -23,8 +25,28 @@ var createTable = function (props, schemaPath) {
             .trim()
             .concat("\n"));
     });
-    tableString = tableString.concat(")\n\n");
+    tableString = tableString.concat(");\n\n");
     fs_1.appendFileSync(path_1.join(process_1.cwd(), schemaPath), tableString);
+    if (checkExistsTruth("indexes", props)) {
+        var indexStrings_1 = "";
+        props.indexes.forEach(function (index) {
+            indexStrings_1 = indexStrings_1.concat(createIndex(index, props.name));
+            console.timeLog("Creating Schema", "Status: Created Index " + index.name);
+        });
+        fs_1.appendFileSync(path_1.join(process_1.cwd(), schemaPath), indexStrings_1);
+    }
+};
+var createIndex = function (props, table) {
+    var indexString = "CREATE" + (checkExistsTruth("unique", props) ? " UNIQUE" : "") + " INDEX " + props.name + " ON " + table + " (";
+    props.fields.forEach(function (field, idx) {
+        if (idx === props.fields.length - 1) {
+            indexString = indexString.concat(field + ");\n\n");
+        }
+        else {
+            indexString = indexString.concat(field + ", ");
+        }
+    });
+    return indexString;
 };
 var checkExistsTruth = function (prop, obj) {
     return prop in obj && obj[prop];

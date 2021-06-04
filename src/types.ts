@@ -4,9 +4,16 @@ export type Schema = {
     schemaFilePath?: string;
 };
 
+export type Index = {
+    name: string;
+    fields: string[];
+    unique?: boolean;
+};
+
 export type Table = {
     name: string;
     fields: Array<Field>;
+    indexes?: Array<Index>;
 };
 
 export type Field = {
