@@ -23,7 +23,7 @@ var createTable = function (props, schemaPath) {
             .trim()
             .concat("\n"));
     });
-    tableString = tableString.concat(")\n");
+    tableString = tableString.concat(")\n\n");
     fs_1.appendFileSync(path_1.join(process_1.cwd(), schemaPath), tableString);
 };
 var checkExistsTruth = function (prop, obj) {
