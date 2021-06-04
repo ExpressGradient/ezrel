@@ -6,13 +6,13 @@ export type Schema = {
 
 export type Table = {
     name: string;
-    fields: Array<Field<any>>;
+    fields: Array<Field>;
 };
 
-export type Field<T> = {
+export type Field = {
     name: string;
     type: string;
-    default?: T;
+    default?: any;
 
     // Constraints
     primaryKey?: boolean;

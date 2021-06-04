@@ -19,10 +19,13 @@ const createTable = (props: Table, schemaPath: string): void => {
 
     props.fields.forEach(
         (field) =>
-            (tableString = tableString.concat(createField(field)).concat("\n"))
+            (tableString = tableString
+                .concat(createField(field))
+                .trim()
+                .concat("\n"))
     );
 
-    tableString = tableString.concat(")\n");
+    tableString = tableString.concat(")\n\n");
 
     appendFileSync(join(cwd(), schemaPath), tableString);
 };
@@ -31,10 +34,34 @@ const checkExistsTruth = (prop: string, obj: object): boolean => {
     return prop in obj && obj[prop];
 };
 
-const createField = <T>(props: Field<T>): string => {
-    return `${props.name} ${props.type} ${
-        checkExistsTruth("primaryKey", props) ? "PRIMARY KEY" : ""
-    } ${checkExistsTruth("unique", props) ? "UNIQUE" : ""} ${
-        checkExistsTruth("notNull", props) ? "NOT NULL" : ""
-    };`;
+const createField = (props: Field): string => {
+    let fieldString: string = `${props.name} ${props.type}`;
+
+    if (checkExistsTruth("default", props)) {
+        fieldString = fieldString.concat(` DEFAULT ${props.default}`);
+    }
+
+    if (checkExistsTruth("primaryKey", props)) {
+        fieldString = fieldString.concat(" PRIMARY KEY;");
+        return fieldString;
+    }
+
+    if (checkExistsTruth("references", props)) {
+        fieldString = fieldString.concat(
+            ` REFERENCES ${props.references.table} ${props.references.field};`
+        );
+        return fieldString;
+    }
+
+    if (checkExistsTruth("unique", props)) {
+        fieldString = fieldString.concat(` UNIQUE`);
+    }
+
+    if (checkExistsTruth("notNull", props)) {
+        fieldString = fieldString.concat(` NOT NULL`);
+    }
+
+    fieldString = fieldString.concat(`;`);
+
+    return fieldString;
 };

@@ -5,12 +5,12 @@ export declare type Schema = {
 };
 export declare type Table = {
     name: string;
-    fields: Array<Field<any>>;
+    fields: Array<Field>;
 };
-export declare type Field<T> = {
+export declare type Field = {
     name: string;
     type: string;
-    default?: T;
+    default?: any;
     primaryKey?: boolean;
     references?: {
         table: string;

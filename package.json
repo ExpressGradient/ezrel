@@ -11,11 +11,12 @@
     "type": "git",
     "url": "git+https://github.com/ExpressGradient/ezrel.git"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "keywords": [
     "PostgreSQL",
-    "REST",
-    "API",
-    "Fastify"
+    "Fastify.js"
   ],
   "author": "ExpressGradient",
   "license": "MIT",
