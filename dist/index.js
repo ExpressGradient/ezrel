@@ -23,24 +23,38 @@ var createSchema = function (props) {
     pool.query(schema, function (err, res) {
         if (err) {
             console.log(err);
+            console.timeEnd("Creating Schema");
+            console.log("Failed");
         }
         else {
             console.log(res);
+            console.timeEnd("Creating Schema");
+            console.log("Done");
         }
         pool.end();
     });
-    console.timeEnd("Creating Schema");
-    console.log("Done");
 };
 exports.createSchema = createSchema;
 var createTable = function (props, schemaPath) {
     var tableString = "CREATE TABLE " + props.name + " (\n";
     props.fields.forEach(function (field, idx) {
         return (tableString = tableString
-            .concat(createField(field, idx === props.fields.length - 1))
+            .concat(createField(field, !checkExistsTruth("checks", props) &&
+            idx === props.fields.length - 1))
             .trim()
             .concat("\n"));
     });
+    if (checkExistsTruth("checks", props)) {
+        props.checks.forEach(function (check, idx) {
+            tableString = tableString.concat("CHECK (" + check + ")");
+            if (idx < props.checks.length - 1) {
+                tableString = tableString.concat(",\n");
+            }
+            else {
+                tableString = tableString.concat("\n");
+            }
+        });
+    }
     tableString = tableString.concat(")");
     if (checkExistsTruth("inherits", props)) {
         tableString = tableString.concat(" INHERITS (" + props.inherits + ")");

@@ -36,14 +36,15 @@ export const createSchema = (props: Schema): void => {
     pool.query(schema, (err, res) => {
         if (err) {
             console.log(err);
+            console.timeEnd("Creating Schema");
+            console.log("Failed");
         } else {
             console.log(res);
+            console.timeEnd("Creating Schema");
+            console.log("Done");
         }
         pool.end();
     });
-
-    console.timeEnd("Creating Schema");
-    console.log("Done");
 };
 
 const createTable = (props: Table, schemaPath: string): void => {
@@ -52,10 +53,27 @@ const createTable = (props: Table, schemaPath: string): void => {
     props.fields.forEach(
         (field, idx) =>
             (tableString = tableString
-                .concat(createField(field, idx === props.fields.length - 1))
+                .concat(
+                    createField(
+                        field,
+                        !checkExistsTruth("checks", props) &&
+                            idx === props.fields.length - 1
+                    )
+                )
                 .trim()
                 .concat("\n"))
     );
+
+    if (checkExistsTruth("checks", props)) {
+        props.checks.forEach((check, idx) => {
+            tableString = tableString.concat(`CHECK (${check})`);
+            if (idx < props.checks.length - 1) {
+                tableString = tableString.concat(",\n");
+            } else {
+                tableString = tableString.concat("\n");
+            }
+        });
+    }
 
     tableString = tableString.concat(")");
 

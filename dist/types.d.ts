@@ -13,6 +13,7 @@ export declare type Table = {
     fields: Array<Field>;
     indexes?: Array<Index>;
     inherits?: string;
+    checks?: Array<string>;
 };
 export declare type Field = {
     name: string;

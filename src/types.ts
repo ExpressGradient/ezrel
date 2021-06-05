@@ -15,6 +15,7 @@ export type Table = {
     fields: Array<Field>;
     indexes?: Array<Index>;
     inherits?: string;
+    checks?: Array<string>;
 };
 
 export type Field = {
