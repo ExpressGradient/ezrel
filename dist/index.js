@@ -1,128 +1,135 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createSchema = void 0;
+var pg_1 = require("pg");
 var fs_1 = require("fs");
 var path_1 = require("path");
 var process_1 = require("process");
-var pg_1 = require("pg");
-var createSchema = function (props) {
-    console.time("Creating Schema");
-    var schemaPath = props.schemaFilePath || "schema.sql";
-    fs_1.writeFileSync(path_1.join(process_1.cwd(), schemaPath), "");
-    console.timeLog("Creating Schema", "Status: Writing Schema to " + schemaPath);
-    props.tables.forEach(function (table) {
-        console.timeLog("Creating Schema", "Status: Writing Table " + table.name);
-        createTable(table, schemaPath);
+var createSchema = function (schema) {
+    console.time("Generating Relations");
+    var schemaString = "";
+    schema.tables.forEach(function (table) {
+        console.timeLog("Generating Relations", "Generating Table " + table.name);
+        schemaString += createTable(table);
     });
-    var pool = new pg_1.Pool({ connectionString: props.databaseString });
-    console.timeLog("Creating Schema", "Creating Postgres Pool");
-    var schema = fs_1.readFileSync(schemaPath, {
-        encoding: "utf-8",
-    }).toString();
-    console.timeLog("Creating Schema", "Creating Tables and Indexes in Postgres");
-    pool.query(schema, function (err, res) {
-        if (err) {
-            console.log(err);
-            console.timeEnd("Creating Schema");
-            console.log("Failed");
+    console.timeLog("Generating Relations", "Writing Schema to schema.sql");
+    fs_1.writeFileSync(path_1.join(process_1.cwd(), "schema.sql"), schemaString);
+    var pool = new pg_1.Pool({ connectionString: schema.connectionString });
+    pool.connect().then(function () {
+        console.log("Postgres Database Connected");
+        console.timeLog("Generating Relations", "Creating Tables in Postgres from the Schema");
+    });
+    pool.query(schemaString, function (err, res) {
+        if (res) {
+            console.log(res);
+            console.log("Success");
+            process_1.exit(0);
         }
         else {
-            console.log(res);
-            console.timeEnd("Creating Schema");
-            console.log("Done");
+            console.log(err);
+            console.log("Failed");
+            process_1.exit(1);
         }
-        pool.end();
     });
 };
 exports.createSchema = createSchema;
-var createTable = function (props, schemaPath) {
-    var tableString = "CREATE TABLE " + props.name + " (\n";
-    props.fields.forEach(function (field, idx) {
-        return (tableString = tableString
-            .concat(createField(field, !checkExistsTruth("checks", props) &&
-            idx === props.fields.length - 1))
-            .trim()
-            .concat("\n"));
+var createTable = function (table) {
+    var tableString = "CREATE TABLE " + table.name + " (\n";
+    table.fields.forEach(function (field) {
+        tableString += createField(field);
     });
-    if (checkExistsTruth("checks", props)) {
-        props.checks.forEach(function (check, idx) {
-            tableString = tableString.concat("CHECK (" + check + ")");
-            if (idx < props.checks.length - 1) {
-                tableString = tableString.concat(",\n");
+    if ("constraints" in table) {
+        if ("primaryKey" in table.constraints) {
+            tableString += "PRIMARY KEY (";
+            table.constraints.primaryKey.forEach(function (field, idx) {
+                tableString += field;
+                if (idx < table.constraints.primaryKey.length - 1) {
+                    tableString += ", ";
+                }
+            });
+            tableString += "),\n";
+        }
+        if ("references" in table.constraints) {
+            tableString += "FOREIGN KEY (";
+            table.constraints.references.fields.forEach(function (field, idx) {
+                tableString += field;
+                if (idx < table.constraints.references.fields.length - 1) {
+                    tableString += ", ";
+                }
+            });
+            tableString += ") REFERENCES " + table.constraints.references.on.name + " (";
+            table.constraints.references.referenceFields.forEach(function (field, idx) {
+                tableString += field;
+                if (idx <
+                    table.constraints.references.referenceFields.length - 1) {
+                    tableString += ", ";
+                }
+            });
+            tableString += ")";
+            if ("onDelete" in table.constraints.references) {
+                tableString += " ON DELETE " + table.constraints.references.onDelete;
+            }
+            tableString += ",\n";
+        }
+        if ("checks" in table.constraints) {
+            table.constraints.checks.forEach(function (check) {
+                tableString += "CONSTRAINT " + check.name + " CHECK (" + check.check + "),\n";
+            });
+        }
+        if ("unique" in table.constraints) {
+            table.constraints.unique.forEach(function (constraint) {
+                tableString += "CONSTRAINT " + constraint.name + " UNIQUE (";
+                constraint.fields.forEach(function (field, idx) {
+                    tableString += field;
+                    if (idx < constraint.fields.length - 1) {
+                        tableString += ",";
+                    }
+                });
+                tableString += "),\n";
+            });
+        }
+    }
+    tableString = tableString.slice(0, -2).concat("\n)");
+    if ("inherits" in table) {
+        tableString += " INHERITS (" + table.inherits.name + ")";
+    }
+    tableString += ";\n\n";
+    if ("indexes" in table) {
+        table.indexes.forEach(function (index, idx) {
+            if ("unique" in index) {
+                tableString += "CREATE UNIQUE INDEX " + index.name + " ON " + table.name + " (";
             }
             else {
-                tableString = tableString.concat("\n");
+                tableString += "CREATE INDEX " + index.name + " on " + table.name + " (";
             }
+            index.fields.forEach(function (field, idx) {
+                tableString += field;
+                if (idx < index.fields.length - 1) {
+                    tableString += ",";
+                }
+            });
+            tableString += ");\n\n";
         });
     }
-    tableString = tableString.concat(")");
-    if (checkExistsTruth("inherits", props)) {
-        tableString = tableString.concat(" INHERITS (" + props.inherits + ")");
-    }
-    tableString = tableString.concat(";\n\n");
-    fs_1.appendFileSync(path_1.join(process_1.cwd(), schemaPath), tableString);
-    if (checkExistsTruth("indexes", props)) {
-        var indexStrings_1 = "";
-        props.indexes.forEach(function (index) {
-            console.timeLog("Creating Schema", "Status: Writing Index " + index.name);
-            indexStrings_1 = indexStrings_1.concat(createIndex(index, props.name));
-        });
-        fs_1.appendFileSync(path_1.join(process_1.cwd(), schemaPath), indexStrings_1);
-    }
+    return tableString;
 };
-var createIndex = function (props, table) {
-    var indexString = "CREATE" + (checkExistsTruth("unique", props) ? " UNIQUE" : "") + " INDEX " + props.name + " ON " + table + " (";
-    props.fields.forEach(function (field, idx) {
-        if (idx === props.fields.length - 1) {
-            indexString = indexString.concat(field + ");\n\n");
+var createField = function (field) {
+    var fieldString = field.name + " " + field.type;
+    if ("default" in field) {
+        fieldString += " DEFAULT " + field.default;
+    }
+    if ("constraints" in field) {
+        if ("notNull" in field.constraints && field.constraints.notNull) {
+            fieldString += " NOT NULL";
         }
-        else {
-            indexString = indexString.concat(field + ", ");
+        if ("check" in field.constraints) {
+            fieldString += " CONSTRAINT " + field.constraints.check.name + " CHECK (" + field.constraints.check.check + ")";
         }
-    });
-    return indexString;
-};
-var checkExistsTruth = function (prop, obj) {
-    return prop in obj && obj[prop];
-};
-var createField = function (props, isLastField) {
-    if (isLastField === void 0) { isLastField = false; }
-    var fieldString = props.name + " " + props.type;
-    if (checkExistsTruth("default", props)) {
-        fieldString = fieldString.concat(" DEFAULT " + props.default);
-    }
-    if (checkExistsTruth("primaryKey", props)) {
-        fieldString = fieldString.concat(" PRIMARY KEY");
-        if (!isLastField) {
-            fieldString = fieldString.concat(",");
+        if ("unique" in field.constraints) {
+            fieldString += " CONSTRAINT " + field.constraints.unique.name + " UNIQUE";
         }
-        return fieldString;
     }
-    if (checkExistsTruth("references", props)) {
-        fieldString = fieldString.concat(" REFERENCES " + props.references.table + " (");
-        props.references.fields.forEach(function (field, idx) {
-            fieldString = fieldString.concat(field);
-            if (idx < props.references.fields.length - 1) {
-                fieldString = fieldString.concat(", ");
-            }
-            else {
-                fieldString = fieldString.concat(")");
-            }
-        });
-        if (!isLastField) {
-            fieldString = fieldString.concat(",");
-        }
-        return fieldString;
-    }
-    if (checkExistsTruth("unique", props)) {
-        fieldString = fieldString.concat(" UNIQUE");
-    }
-    if (checkExistsTruth("notNull", props)) {
-        fieldString = fieldString.concat(" NOT NULL");
-    }
-    if (!isLastField) {
-        fieldString = fieldString.concat(",");
-    }
+    fieldString += ",\n";
     return fieldString;
 };
 //# sourceMappingURL=index.js.map

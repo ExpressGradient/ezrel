@@ -1,167 +1,168 @@
-import { Field, Index, Schema, Table } from "./types";
-import { appendFileSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-import { cwd } from "process";
+import { Field, Schema, Table } from "./types";
 import { Pool } from "pg";
+import { writeFileSync } from "fs";
+import { join } from "path";
+import { cwd, exit } from "process";
 
-export const createSchema = (props: Schema): void => {
-    console.time("Creating Schema");
-    const schemaPath: string = props.schemaFilePath || "schema.sql";
+export const createSchema = (schema: Schema): void => {
+    console.time("Generating Relations");
 
-    writeFileSync(join(cwd(), schemaPath), "");
-    console.timeLog(
-        "Creating Schema",
-        `Status: Writing Schema to ${schemaPath}`
-    );
+    let schemaString: string = "";
 
-    props.tables.forEach((table) => {
+    schema.tables.forEach((table) => {
         console.timeLog(
-            "Creating Schema",
-            `Status: Writing Table ${table.name}`
+            "Generating Relations",
+            `Generating Table ${table.name}`
         );
-        createTable(table, schemaPath);
+        schemaString += createTable(table);
     });
 
-    const pool = new Pool({ connectionString: props.databaseString });
-    console.timeLog("Creating Schema", "Creating Postgres Pool");
+    console.timeLog("Generating Relations", "Writing Schema to schema.sql");
+    writeFileSync(join(cwd(), "schema.sql"), schemaString);
 
-    const schema: string = readFileSync(schemaPath, {
-        encoding: "utf-8",
-    }).toString();
-    console.timeLog(
-        "Creating Schema",
-        "Creating Tables and Indexes in Postgres"
-    );
+    const pool = new Pool({ connectionString: schema.connectionString });
+    pool.connect().then(() => {
+        console.log("Postgres Database Connected");
+        console.timeLog(
+            "Generating Relations",
+            "Creating Tables in Postgres from the Schema"
+        );
+    });
 
-    pool.query(schema, (err, res) => {
-        if (err) {
-            console.log(err);
-            console.timeEnd("Creating Schema");
-            console.log("Failed");
-        } else {
+    pool.query(schemaString, (err, res) => {
+        if (res) {
             console.log(res);
-            console.timeEnd("Creating Schema");
-            console.log("Done");
-        }
-        pool.end();
-    });
-};
-
-const createTable = (props: Table, schemaPath: string): void => {
-    let tableString: string = `CREATE TABLE ${props.name} (\n`;
-
-    props.fields.forEach(
-        (field, idx) =>
-            (tableString = tableString
-                .concat(
-                    createField(
-                        field,
-                        !checkExistsTruth("checks", props) &&
-                            idx === props.fields.length - 1
-                    )
-                )
-                .trim()
-                .concat("\n"))
-    );
-
-    if (checkExistsTruth("checks", props)) {
-        props.checks.forEach((check, idx) => {
-            tableString = tableString.concat(`CHECK (${check})`);
-            if (idx < props.checks.length - 1) {
-                tableString = tableString.concat(",\n");
-            } else {
-                tableString = tableString.concat("\n");
-            }
-        });
-    }
-
-    tableString = tableString.concat(")");
-
-    if (checkExistsTruth("inherits", props)) {
-        tableString = tableString.concat(` INHERITS (${props.inherits})`);
-    }
-
-    tableString = tableString.concat(";\n\n");
-
-    appendFileSync(join(cwd(), schemaPath), tableString);
-
-    if (checkExistsTruth("indexes", props)) {
-        let indexStrings: string = "";
-        props.indexes.forEach((index) => {
-            console.timeLog(
-                "Creating Schema",
-                `Status: Writing Index ${index.name}`
-            );
-            indexStrings = indexStrings.concat(createIndex(index, props.name));
-        });
-        appendFileSync(join(cwd(), schemaPath), indexStrings);
-    }
-};
-
-const createIndex = (props: Index, table: string): string => {
-    let indexString: string = `CREATE${
-        checkExistsTruth("unique", props) ? " UNIQUE" : ""
-    } INDEX ${props.name} ON ${table} (`;
-
-    props.fields.forEach((field, idx) => {
-        if (idx === props.fields.length - 1) {
-            indexString = indexString.concat(`${field});\n\n`);
+            console.log("Success");
+            exit(0);
         } else {
-            indexString = indexString.concat(`${field}, `);
+            console.log(err);
+            console.log("Failed");
+            exit(1);
         }
     });
-
-    return indexString;
 };
 
-const checkExistsTruth = (prop: string, obj: object): boolean => {
-    return prop in obj && obj[prop];
-};
+const createTable = (table: Table): string => {
+    let tableString: string = `CREATE TABLE ${table.name} (\n`;
 
-const createField = (props: Field, isLastField: boolean = false): string => {
-    let fieldString: string = `${props.name} ${props.type}`;
+    table.fields.forEach((field) => {
+        tableString += createField(field);
+    });
 
-    if (checkExistsTruth("default", props)) {
-        fieldString = fieldString.concat(` DEFAULT ${props.default}`);
-    }
-
-    if (checkExistsTruth("primaryKey", props)) {
-        fieldString = fieldString.concat(" PRIMARY KEY");
-        if (!isLastField) {
-            fieldString = fieldString.concat(`,`);
+    if ("constraints" in table) {
+        if ("primaryKey" in table.constraints) {
+            tableString += `PRIMARY KEY (`;
+            table.constraints.primaryKey.forEach((field, idx) => {
+                tableString += field;
+                if (idx < table.constraints.primaryKey.length - 1) {
+                    tableString += ", ";
+                }
+            });
+            tableString += "),\n";
         }
-        return fieldString;
-    }
 
-    if (checkExistsTruth("references", props)) {
-        fieldString = fieldString.concat(
-            ` REFERENCES ${props.references.table} (`
-        );
-        props.references.fields.forEach((field: string, idx) => {
-            fieldString = fieldString.concat(field);
-            if (idx < props.references.fields.length - 1) {
-                fieldString = fieldString.concat(", ");
-            } else {
-                fieldString = fieldString.concat(")");
+        if ("references" in table.constraints) {
+            tableString += `FOREIGN KEY (`;
+
+            table.constraints.references.fields.forEach((field, idx) => {
+                tableString += field;
+                if (idx < table.constraints.references.fields.length - 1) {
+                    tableString += ", ";
+                }
+            });
+            tableString += `) REFERENCES ${table.constraints.references.on.name} (`;
+
+            table.constraints.references.referenceFields.forEach(
+                (field, idx) => {
+                    tableString += field;
+                    if (
+                        idx <
+                        table.constraints.references.referenceFields.length - 1
+                    ) {
+                        tableString += ", ";
+                    }
+                }
+            );
+            tableString += ")";
+
+            if ("onDelete" in table.constraints.references) {
+                tableString += ` ON DELETE ${table.constraints.references.onDelete}`;
             }
-        });
-        if (!isLastField) {
-            fieldString = fieldString.concat(`,`);
+
+            tableString += ",\n";
         }
-        return fieldString;
+
+        if ("checks" in table.constraints) {
+            table.constraints.checks.forEach((check) => {
+                tableString += `CONSTRAINT ${check.name} CHECK (${check.check}),\n`;
+            });
+        }
+
+        if ("unique" in table.constraints) {
+            table.constraints.unique.forEach((constraint) => {
+                tableString += `CONSTRAINT ${constraint.name} UNIQUE (`;
+                constraint.fields.forEach((field, idx) => {
+                    tableString += field;
+                    if (idx < constraint.fields.length - 1) {
+                        tableString += ",";
+                    }
+                });
+                tableString += "),\n";
+            });
+        }
     }
 
-    if (checkExistsTruth("unique", props)) {
-        fieldString = fieldString.concat(` UNIQUE`);
+    tableString = tableString.slice(0, -2).concat("\n)");
+
+    if ("inherits" in table) {
+        tableString += ` INHERITS (${table.inherits.name})`;
     }
 
-    if (checkExistsTruth("notNull", props)) {
-        fieldString = fieldString.concat(` NOT NULL`);
+    tableString += ";\n\n";
+
+    if ("indexes" in table) {
+        table.indexes.forEach((index) => {
+            if ("unique" in index) {
+                tableString += `CREATE UNIQUE INDEX ${index.name} ON ${table.name} (`;
+            } else {
+                tableString += `CREATE INDEX ${index.name} on ${table.name} (`;
+            }
+
+            index.fields.forEach((field, idx) => {
+                tableString += field;
+                if (idx < index.fields.length - 1) {
+                    tableString += ",";
+                }
+            });
+            tableString += ");\n\n";
+        });
     }
 
-    if (!isLastField) {
-        fieldString = fieldString.concat(`,`);
+    return tableString;
+};
+
+const createField = (field: Field): string => {
+    let fieldString: string = `${field.name} ${field.type}`;
+
+    if ("default" in field) {
+        fieldString += ` DEFAULT ${field.default}`;
     }
+
+    if ("constraints" in field) {
+        if ("notNull" in field.constraints && field.constraints.notNull) {
+            fieldString += " NOT NULL";
+        }
+
+        if ("check" in field.constraints) {
+            fieldString += ` CONSTRAINT ${field.constraints.check.name} CHECK (${field.constraints.check.check})`;
+        }
+
+        if ("unique" in field.constraints) {
+            fieldString += ` CONSTRAINT ${field.constraints.unique.name} UNIQUE`;
+        }
+    }
+
+    fieldString += ",\n";
 
     return fieldString;
 };

@@ -1,34 +1,48 @@
-export type Schema = {
+export interface Schema {
     tables: Array<Table>;
-    databaseString: string;
-    schemaFilePath?: string;
-};
+    connectionString: string;
+}
 
-export type Index = {
-    name: string;
-    fields: string[];
-    unique?: boolean;
-};
-
-export type Table = {
+export interface Table {
     name: string;
     fields: Array<Field>;
-    indexes?: Array<Index>;
-    inherits?: string;
-    checks?: Array<string>;
-};
+    constraints?: {
+        primaryKey?: Array<string>;
+        references?: {
+            fields: Array<string>;
+            on: Table;
+            referenceFields: Array<string>;
+            onDelete?: "RESTRICT" | "CASCADE";
+        };
+        checks?: Array<{
+            name: string;
+            check: string;
+        }>;
+        unique?: Array<{
+            name: string;
+            fields: Array<string>;
+        }>;
+    };
+    inherits?: Table;
+    indexes?: Array<{
+        name: string;
+        fields: Array<string>;
+        unique?: boolean;
+    }>;
+}
 
-export type Field = {
+export interface Field {
     name: string;
     type: string;
     default?: any;
-
-    // Constraints
-    primaryKey?: boolean;
-    references?: {
-        table: string;
-        fields: Array<String>;
+    constraints?: {
+        notNull?: boolean;
+        check?: {
+            name: string;
+            check: string;
+        };
+        unique?: {
+            name: string;
+        };
     };
-    unique?: boolean;
-    notNull?: boolean;
-};
+}
