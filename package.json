@@ -1,5 +1,5 @@
 {
-  "name": "ezrel",
+  "name": "@expressgradient/ezrel",
   "version": "0.1.0-beta.0",
   "description": "Easy Peasy Relations",
   "main": "dist/index.js",
