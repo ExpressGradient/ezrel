@@ -51,10 +51,10 @@ const createTable = (table: Table): string => {
 
     if ("constraints" in table) {
         if ("primaryKey" in table.constraints) {
-            tableString += `PRIMARY KEY (`;
-            table.constraints.primaryKey.forEach((field, idx) => {
+            tableString += `CONSTRAINT ${table.constraints.primaryKey.name} PRIMARY KEY (`;
+            table.constraints.primaryKey.fields.forEach((field, idx) => {
                 tableString += field;
-                if (idx < table.constraints.primaryKey.length - 1) {
+                if (idx < table.constraints.primaryKey.fields.length - 1) {
                     tableString += ", ";
                 }
             });
@@ -62,34 +62,31 @@ const createTable = (table: Table): string => {
         }
 
         if ("references" in table.constraints) {
-            tableString += `FOREIGN KEY (`;
+            table.constraints.references.forEach((reference) => {
+                tableString += `CONSTRAINT ${reference.name} FOREIGN KEY (`;
 
-            table.constraints.references.fields.forEach((field, idx) => {
-                tableString += field;
-                if (idx < table.constraints.references.fields.length - 1) {
-                    tableString += ", ";
-                }
-            });
-            tableString += `) REFERENCES ${table.constraints.references.on.name} (`;
-
-            table.constraints.references.referenceFields.forEach(
-                (field, idx) => {
+                reference.fields.forEach((field, idx) => {
                     tableString += field;
-                    if (
-                        idx <
-                        table.constraints.references.referenceFields.length - 1
-                    ) {
+                    if (idx < reference.fields.length - 1) {
                         tableString += ", ";
                     }
+                });
+                tableString += `) REFERENCES ${reference.on.name} (`;
+
+                reference.referenceFields.forEach((field, idx) => {
+                    tableString += field;
+                    if (idx < reference.referenceFields.length - 1) {
+                        tableString += ", ";
+                    }
+                });
+                tableString += ")";
+
+                if ("onDelete" in table.constraints.references) {
+                    tableString += ` ON DELETE ${reference.onDelete}`;
                 }
-            );
-            tableString += ")";
 
-            if ("onDelete" in table.constraints.references) {
-                tableString += ` ON DELETE ${table.constraints.references.onDelete}`;
-            }
-
-            tableString += ",\n";
+                tableString += ",\n";
+            });
         }
 
         if ("checks" in table.constraints) {

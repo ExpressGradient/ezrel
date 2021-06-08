@@ -7,13 +7,17 @@ export interface Table {
     name: string;
     fields: Array<Field>;
     constraints?: {
-        primaryKey?: Array<string>;
-        references?: {
+        primaryKey?: {
+            name: string;
+            fields: Array<string>;
+        };
+        references?: Array<{
+            name: string;
             fields: Array<string>;
             on: Table;
             referenceFields: Array<string>;
             onDelete?: "RESTRICT" | "CASCADE";
-        };
+        }>;
         checks?: Array<{
             name: string;
             check: string;
