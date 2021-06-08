@@ -159,6 +159,10 @@ const createField = (field: Field): string => {
         }
     }
 
+    if ("generated" in field) {
+        fieldString += ` GENERATED ALWAYS AS (${field.generated}) STORED`;
+    }
+
     fieldString += ",\n";
 
     return fieldString;

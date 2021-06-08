@@ -130,6 +130,9 @@ var createField = function (field) {
             fieldString += " CONSTRAINT " + field.constraints.unique.name + " UNIQUE";
         }
     }
+    if ("generated" in field) {
+        fieldString += " GENERATED ALWAYS AS (" + field.generated + ") STORED";
+    }
     fieldString += ",\n";
     return fieldString;
 };

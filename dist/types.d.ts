@@ -47,4 +47,5 @@ export interface Field {
             name: string;
         };
     };
+    generated?: string;
 }
