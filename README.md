@@ -1,3 +1,5 @@
+This package has been moved to [the-ez-org/ezrel](https://github.com/the-ez-org/ezrel).
+
 # EzRel
 Easy Peasy Relations
 
